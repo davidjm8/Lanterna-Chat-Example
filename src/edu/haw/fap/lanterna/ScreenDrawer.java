@@ -16,9 +16,9 @@ public class ScreenDrawer extends Thread {
 	
 	
 	private static final int MAX_MESSAGE_LENGTH = 300;
-	private Terminal terminal;
-	private Screen screen;
-	private ScreenWriter writer;
+	private final Terminal terminal;
+	private final Screen screen;
+	private final ScreenWriter writer;
 	private boolean keepRunning;
 	
 	private List<String> chatArea;
@@ -27,11 +27,11 @@ public class ScreenDrawer extends Thread {
 	
 	public ScreenDrawer() {
 		this.terminal = TerminalFacade.createTerminal(System.in, System.out, Charset.forName("UTF8"));
-		this.screen = new Screen(terminal);
+		this.terminal.setCursorVisible(false);
+		this.screen = new Screen(this.terminal);
 		this.screen.setTabBehaviour(TabBehaviour.CONVERT_TO_FOUR_SPACES);
-		this.writer = new ScreenWriter(screen);
-		this.writer.setForegroundColor(Terminal.Color.BLACK);
-		this.writer.setBackgroundColor(Terminal.Color.WHITE);
+		this.writer = new ScreenWriter(this.screen);
+		this.setTextColors();
 	}
 
 	@Override
@@ -42,24 +42,25 @@ public class ScreenDrawer extends Thread {
 		this.inputArea = "";
 		this.chatArea = new ArrayList<>();
 		
-		while(keepRunning) {
-			screen.clear();
-			TerminalSize screenSize = terminal.getTerminalSize();
-	        drawChatArea(screenSize);
-	        drawSeparatingLine(screenSize);
-	        drawInputArea(screenSize);
+		while(this.keepRunning) {
+			this.screen.clear();
+			final TerminalSize screenSize = this.terminal.getTerminalSize();
+	        this.drawChatArea(screenSize);
+	        this.drawSeparatingLine(screenSize);
+	        this.drawInputArea(screenSize);
 	        this.screen.refresh();
 	    }
 	}
 
-	private void drawChatArea(TerminalSize screenSize) {
-		chatAreaSize = screenSize.getRows() - 2;
+	private void drawChatArea(final TerminalSize screenSize) {
+		this.setTextColors();
+		this.chatAreaSize = screenSize.getRows() - 2;
 		
-		List<String> chatLinesSplit = new ArrayList<>();
+		final List<String> chatLinesSplit = new ArrayList<>();
 		for (String string : this.chatArea) {
-			int visibleColumns = screenSize.getColumns() - 1;
+			final int visibleColumns = screenSize.getColumns() - 1;
 			if (string.length() > visibleColumns) {
-				string = splitLines(chatLinesSplit, string, visibleColumns);
+				string = this.splitLines(chatLinesSplit, string, visibleColumns);
 			} else {
 				chatLinesSplit.add(string);
 			}
@@ -68,15 +69,15 @@ public class ScreenDrawer extends Thread {
 		if (visibleChatAreaStart < 0) {
 			visibleChatAreaStart = 0;
 		}
-        for (int i = 0; (i < chatAreaSize) && (i < chatLinesSplit.size()); i++) {
+        for (int i = 0; (i < this.chatAreaSize) && (i < chatLinesSplit.size()); i++) {
             this.writer.drawString(0, i, chatLinesSplit.get(visibleChatAreaStart));
             visibleChatAreaStart++;
         }
 	}
 
-	private String splitLines(List<String> chatLinesSplit, String string, int visibleColumns) {
+	private String splitLines(final List<String> chatLinesSplit, String string, final int visibleColumns) {
 		while (string.length() > visibleColumns) {
-			String current = string.substring(0, visibleColumns);
+			final String current = string.substring(0, visibleColumns);
 			chatLinesSplit.add(current);
 			string = string.substring(visibleColumns);
 		}
@@ -84,15 +85,17 @@ public class ScreenDrawer extends Thread {
 		return string;
 	}
 
-	private void drawInputArea(TerminalSize screenSize) {
-		int visibleInputAreaStart = inputArea.length() - screenSize.getColumns();
+	private void drawInputArea(final TerminalSize screenSize) {
+		this.setTextColors();
+		int visibleInputAreaStart = this.inputArea.length() - screenSize.getColumns();
 		if (visibleInputAreaStart < 0) {
 			visibleInputAreaStart = 0;
 		}
-		this.writer.drawString(0, screenSize.getRows() - 1, inputArea.substring(visibleInputAreaStart));
+		this.writer.drawString(0, screenSize.getRows() - 1, this.inputArea.substring(visibleInputAreaStart));
 	}
 
-	private void drawSeparatingLine(TerminalSize screenSize) {
+	private void drawSeparatingLine(final TerminalSize screenSize) {
+		this.setSeparatorColors();
 		String line = "";
 		for (int i = 0; i < screenSize.getColumns(); i++) {
 			line += "=";
@@ -104,7 +107,7 @@ public class ScreenDrawer extends Thread {
 		this.screen.startScreen();
 	}
 	
-	public synchronized void writeToInputArea(char character) {
+	public synchronized void writeToInputArea(final char character) {
 		if (this.inputArea.length() < MAX_MESSAGE_LENGTH) {
 			this.inputArea += character;
 		}
@@ -112,16 +115,26 @@ public class ScreenDrawer extends Thread {
 	
 	public synchronized void deleteOneFromInputArea() {
 		if (this.inputArea.length() > 0) {
-			this.inputArea = this.inputArea.substring(0, inputArea.length() - 1);
+			this.inputArea = this.inputArea.substring(0, this.inputArea.length() - 1);
 		}
 	}
 	
+	private void setTextColors() {
+		this.writer.setForegroundColor(Terminal.Color.BLACK);
+		this.writer.setBackgroundColor(Terminal.Color.WHITE);
+	}
+	
+	private void setSeparatorColors() {
+		this.writer.setForegroundColor(Terminal.Color.WHITE);
+		this.writer.setBackgroundColor(Terminal.Color.BLACK);
+	}
+	
 	public Terminal getTerminal() {
-		return terminal;
+		return this.terminal;
 	}
 
 	public Screen getScreen() {
-		return screen;
+		return this.screen;
 	}
 
 	public synchronized void printMessageToSelf() {
